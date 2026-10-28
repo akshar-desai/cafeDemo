@@ -112,7 +112,7 @@ async function init() {
     delay: 0.5,
     onComplete: () => {
       gsap.set(heroLayers, { clearProps: "willChange" });
-      heading.revert();
+     
       footerText.revert();
       if (navLinks) navLinks.revert();
     },
