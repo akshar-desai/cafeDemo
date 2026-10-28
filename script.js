@@ -1,7 +1,6 @@
 gsap.registerPlugin(SplitText);
 
-/* Wait until every image is decoded (with a safety timeout) so nothing
-   gets decoded / uploaded to the GPU mid-animation. */
+/* Wait until every image is decoded (with a safety timeout). */
 function waitForImages() {
   const decodeAll = Promise.all(
     Array.from(document.images).map((img) =>
@@ -12,7 +11,34 @@ function waitForImages() {
   return Promise.race([decodeAll, timeout]);
 }
 
-function init() {
+/* Resolves after n real frames (with a fallback if rAF is paused). */
+function nextFrames(n = 3) {
+  return new Promise((resolve) => {
+    const fallback = setTimeout(resolve, 400);
+    const step = () => {
+      if (--n <= 0) {
+        clearTimeout(fallback);
+        resolve();
+      } else {
+        requestAnimationFrame(step);
+      }
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+async function init() {
+  const preloader = document.querySelector(".preloader");
+
+  /* Size the revealer circles so their radius equals what
+     clip-path: circle(100%) used to reach: sqrt((w² + h²) / 2).
+     diameter = 2 * radius = sqrt(2 * (w² + h²)) */
+  const { width: pw, height: ph } = preloader.getBoundingClientRect();
+  preloader.style.setProperty(
+    "--reveal-d",
+    Math.ceil(Math.sqrt(2 * (pw * pw + ph * ph))) + "px",
+  );
+
   const hasNavLinks = document.querySelectorAll(".nav-items a").length > 0;
 
   const navLinks = hasNavLinks
@@ -23,7 +49,6 @@ function init() {
       })
     : null;
 
-  // "lines" removed: never animated, only added extra DOM nodes
   const heading = SplitText.create(".hero-header h1", {
     type: "words, chars",
     charsClass: "char",
@@ -38,20 +63,34 @@ function init() {
 
   const navWords = navLinks ? navLinks.words : [];
 
-  // GPU layers only for the few elements that really need them
+  const revealers = gsap.utils.toArray(".preloader-revealer");
   const items = gsap.utils.toArray(".item");
   const itemImages = gsap.utils.toArray(".item img");
+  const logo = ".preloader-logo";
   const heroLayers = [".hero-img-bg", ".hero-img img", ".nav-logo img"];
 
-  gsap.set(
-    [...items, ...itemImages, ".preloader-logo", ...heroLayers],
-    { willChange: "transform" },
-  );
+  // GPU layers only for the few elements that really need them
+  gsap.set([...items, ...itemImages, logo, ...heroLayers], {
+    willChange: "transform",
+  });
 
+  gsap.set(revealers, { scale: 0 });
   gsap.set(".nav-logo img", { scale: 0 });
   if (navWords.length) gsap.set(navWords, { yPercent: 100 });
   gsap.set(heading.chars, { y: 50, opacity: 0, scale: 0.5 });
   gsap.set(footerText.lines, { yPercent: 100 });
+
+  /* PRE-WARM: elements at scale(0) are skipped by the browser, so their
+     raster + GPU texture upload used to happen at the exact moment they
+     first appeared (the visible hitch at revealer 3/4 -> items).
+     Draw them once at 1% opacity (invisible) while the dark preloader
+     covers the screen, then reset to the original start state. */
+  gsap.set([...revealers, ...items], { scale: 1, opacity: 0.01 });
+  gsap.set(logo, { opacity: 0.01 });
+  await nextFrames(3);
+  gsap.set(revealers, { scale: 0, opacity: 1 });
+  gsap.set(items, { scale: 0, opacity: 1 });
+  gsap.set(logo, { opacity: 0 });
 
   const itemTargets = [
     { x: "-20vw", y: "-30vh", rotation: -20 },
@@ -72,7 +111,6 @@ function init() {
   const tl = gsap.timeline({
     delay: 0.5,
     onComplete: () => {
-      // free memory + DOM after everything is done
       gsap.set(heroLayers, { clearProps: "willChange" });
       heading.revert();
       footerText.revert();
@@ -80,14 +118,23 @@ function init() {
     },
   });
 
-  tl.to(".preloader-revealer", {
-    clipPath: "circle(100% at 50% 50%)",
-    duration: 1,
-    stagger: 0.25,
-    ease: "power2.inOut",
+  /* Same timing as before (duration 1, stagger 0.25, power2.inOut),
+     but animating transform scale instead of clip-path. */
+  revealers.forEach((rev, i) => {
+    tl.to(
+      rev,
+      { scale: 1, duration: 1, ease: "power2.inOut", force3D: true },
+      i * 0.25,
+    );
   });
 
-  tl.set(".preloader-revealer", { display: "none" });
+  /* Hide each revealer as soon as the next one fully covers it, so the GPU
+     stops drawing stacked full-screen layers. Invisible to the eye.
+     visibility instead of display:none -> no layout recalculation. */
+  tl.set(revealers[0], { visibility: "hidden" }, 1.25);
+  tl.set(revealers[1], { visibility: "hidden" }, 1.5);
+  tl.set(revealers[2], { visibility: "hidden" }, 1.75);
+  tl.set(revealers[3], { visibility: "hidden" }, 1.75);
 
   items.forEach((item, i) => {
     const target = itemTargets[i];
@@ -102,6 +149,7 @@ function init() {
         rotation: target.rotation,
         duration: 1,
         ease: "power3.out",
+        force3D: true,
         onStart: () => {
           floatingTweens[i] = gsap.to(image, {
             y: gsap.utils.random(-15, -25),
@@ -110,6 +158,7 @@ function init() {
             yoyo: true,
             repeat: -1,
             delay: gsap.utils.random(0, 0.5),
+            force3D: true,
           });
         },
       },
@@ -118,12 +167,12 @@ function init() {
   });
 
   tl.to(
-    ".preloader-logo",
-    { scale: 1, opacity: 1, duration: 1, ease: "power3.out" },
+    logo,
+    { scale: 1, opacity: 1, duration: 1, ease: "power3.out", force3D: true },
     "<",
   );
 
-  tl.set(".preloader-bg", { display: "none" });
+  tl.set(".preloader-bg", { visibility: "hidden" });
 
   tl.to({}, { duration: 1 });
 
@@ -141,14 +190,15 @@ function init() {
         rotation: exit.rotation,
         duration: 0.75,
         ease: "power2.in",
+        force3D: true,
       },
       i === 0 ? ">" : "<0.075",
     );
   });
 
   tl.to(
-    ".preloader-logo",
-    { y: "-120vh", scale: 2.5, duration: 0.75, ease: "power2.in" },
+    logo,
+    { y: "-120vh", scale: 2.5, duration: 0.75, ease: "power2.in", force3D: true },
     "<",
   );
 
@@ -166,8 +216,6 @@ function init() {
     );
   }
 
-  // force3D:false -> chars are painted in the h1 layer instead of
-  // becoming ~50 separate GPU layers re-rasterized on every elastic frame
   tl.to(
     heading.chars,
     {

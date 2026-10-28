@@ -52,20 +52,28 @@ p {
   z-index: 2;
 }
 
-.preloader-bg,
-.preloader-revealer {
+.preloader-bg {
   position: absolute;
   width: 100%;
   height: 100svh;
-}
-
-.preloader-bg {
   background-color: var(--base-500);
 }
 
-/* removed will-change: clip-path (not a compositor property, only wasted memory) */
+/* CHANGED: revealers are now real circles animated with transform: scale()
+   (GPU compositor) instead of clip-path (main-thread repaint every frame).
+   --reveal-d is set from JS so the circle reaches the same radius that
+   circle(100%) did; 160vmax is only a fallback. */
 .preloader-revealer {
-  clip-path: circle(0% at 50% 50%);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--reveal-d, 160vmax);
+  height: var(--reveal-d, 160vmax);
+  margin: calc(var(--reveal-d, 160vmax) / -2) 0 0 calc(var(--reveal-d, 160vmax) / -2);
+  border-radius: 50%;
+  transform: scale(0);
+  transform-origin: center;
+  will-change: transform;
 }
 
 .preloader-revealer-1 {
@@ -87,7 +95,6 @@ p {
   height: 100svh;
 }
 
-/* will-change for items is now applied from JS so it is released afterwards */
 .item {
   position: absolute;
   top: 50%;
@@ -202,7 +209,6 @@ nav {
   width: 130%;
 }
 
-/* display only, no will-change: that created ~50+ GPU layers */
 .nav-word,
 .footer-line,
 .hero-header h1 .char,
