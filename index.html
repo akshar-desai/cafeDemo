@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BucksSauce Landing Page Reveal | Codegrid</title>
 
-  <!-- Fonts loaded early instead of via CSS @import -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Instrument+Sans:wght@500&display=swap"
   />
+
+  <link rel="preload" as="image" href="/public/logo.webp" type="image/webp" />
+  <link rel="preload" as="image" href="/public/item6.webp" type="image/webp" />
+
   <link rel="stylesheet" href="/styles.css" />
 </head>
 
@@ -30,12 +33,12 @@
       <div class="item item-4"><img src="/public/item4.webp" width="600" height="600" decoding="async" alt="" /></div>
     </div>
 
-    <div class="preloader-logo"><img src="/public/logo.webp" alt="" /></div>
+    <div class="preloader-logo"><img src="/public/logo.webp" decoding="async" fetchpriority="high" alt="" /></div>
   </div>
 
   <nav>
     <div class="nav-logo">
-      <img src="/public/logo.webp" alt="" />
+      <img src="/public/logo.webp" decoding="async" alt="" />
     </div>
     <div class="nav-items">
       <!-- <a href="#">Menu</a>
@@ -54,7 +57,7 @@
 
     <div class="hero-img">
       <div class="hero-img-bg"></div>
-      <img src="/public/item6.webp" decoding="async" alt="" />
+      <img src="/public/item6.webp" decoding="async" fetchpriority="high" alt="" />
     </div>
 
     <div class="hero-footer">
@@ -65,7 +68,6 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js"></script>
-  <!-- Only ONE script tag for script.js -->
   <script defer src="/script.js"></script>
 </body>
 </html>
